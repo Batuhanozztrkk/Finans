@@ -2,7 +2,6 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import plotly.express as px
-from streamlit_searchbox import st_searchbox
 
 # ---------------------------------------------------------
 # 1. SAYFA VE TEMA AYARLARI
@@ -28,7 +27,7 @@ st.markdown("""
         box-shadow: 0 4px 6px rgba(0,0,0,0.3);
     }
     .metric-title { color: #94a3b8; font-size: 13px; font-weight: 500; }
-    .metric-value { color: #f8fafc; font-size: 20px; font-weight: bold; margin-top: 5px; }
+    .metric-value { color: #f8fafc; font-size: 18px; font-weight: bold; margin-top: 5px; }
     
     .ai-card {
         background: linear-gradient(135deg, #1e2640 0%, #0f172a 100%);
@@ -49,42 +48,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Popüler BIST ve Global Hisseler Sözlüğü (Arama Motoru İçin)
-STOCK_DICTIONARY = {
-    "Türk Hava Yolları (THYAO)": "THYAO.IS",
-    "Aselsan (ASELS)": "ASELS.IS",
-    "Tüpraş (TUPRS)": "TUPRS.IS",
-    "Ford Otosan (FROTO)": "FROTO.IS",
-    "BİM Mağazalar (BIMAS)": "BIMAS.IS",
-    "Koç Holding (KCHOL)": "KCHOL.IS",
-    "Şişecam (SISE)": "SISE.IS",
-    "Ereğli Demir Çelik (EREGL)": "EREGL.IS",
-    "Enka İnşaat (ENKAI)": "ENKAI.IS",
-    "Ülker Bisküvi (ULKER)": "ULKER.IS",
-    "Galata Wind Enerji (GWIND)": "GWIND.IS",
-    "Akbank (AKBNK)": "AKBNK.IS",
-    "Garanti BBVA (GARAN)": "GARAN.IS",
-    "İş Bankası (ISCTR)": "ISCTR.IS",
-    "Sasa Polyester (SASA)": "SASA.IS",
-    "Hektaş (HEKTS)": "HEKTS.IS",
-    "Kontrolmatik (KONTR)": "KONTR.IS",
-    "Nvidia (NVDA)": "NVDA",
-    "Apple (AAPL)": "AAPL",
-    "Microsoft (MSFT)": "MSFT",
-    "Alphabet / Google (GOOGL)": "GOOGL",
-    "Amazon (AMZN)": "AMZN",
-    "Meta / Facebook (META)": "META",
-    "Tesla (TSLA)": "TSLA"
-}
-
-# Arama Tamamlama Fonksiyonu
-def search_stocks(search_term: str):
-    if not search_term:
-        return []
-    return [name for name in STOCK_DICTIONARY.keys() if search_term.lower() in name.lower()]
-
 # ---------------------------------------------------------
-# 2. SAĞ ALT CANLI PİYASA WIDGET'I
+# 2. CANLI PİYASA WIDGET'I (SAĞ ALT)
 # ---------------------------------------------------------
 @st.cache_data(ttl=60)
 def get_market_summary():
@@ -119,98 +84,111 @@ st.markdown(f"""
 # 3. NAVİGASYON
 # ---------------------------------------------------------
 st.sidebar.title("📌 Menü")
-page = st.sidebar.radio("Sayfa Seçin:", ["🔍 Akıllı Hisse Arama & Künye", "💼 Portföyüm", "📊 BIST Top 10", "🌐 Dev Teknoloji"])
+page = st.sidebar.radio("Sayfa Seçin:", ["🔍 Tüm Hisselerde Arama & Künye", "💼 Portföyüm", "📊 BIST Öne Çıkanlar", "🌐 Dev Teknoloji"])
 
 # ---------------------------------------------------------
-# SAYFA 1: AKILLI HİSSE ARAMA VE DETAYLI KÜNYE
+# SAYFA 1: TÜM HİSSELERDE EVRENSEL ARAMA
 # ---------------------------------------------------------
-if page == "🔍 Akıllı Hisse Arama & Künye":
-    st.title("🔍 Akıllı Hisse Arama ve Detaylı Derinlik Künyesi")
-    st.write("Şirket adını veya kodunu yazmaya başlayın, önerilerden seçerek detaylarına ulaşın:")
+if page == "🔍 Tüm Hisselerde Arama & Künye":
+    st.title("🔍 Tüm Piyasa Hisselerinde Canlı Arama")
+    st.write("BİST veya Dünya borsalarından **istediğiniz hissenin kodunu** yazın (Örn: `THYAO`, `ASELS`, `EREGL`, `GARAN`, `NVDA`, `AAPL`, `TSLA`):")
     
-    selected_name = st_searchbox(
-        search_stocks,
-        key="stock_searchbox",
-        placeholder="Örn: Türk Hava Yolları, Aselsan, Ereğli, Apple..."
-    )
+    col_search, col_btn = st.columns([3, 1])
+    with col_search:
+        user_input = st.text_input("Hisse Kodu veya Sembolü:", value="THYAO").upper().strip()
     
-    # Varsayılan olarak THY gelsin
-    if not selected_name:
-        selected_name = "Türk Hava Yolları (THYAO)"
-        
-    symbol = STOCK_DICTIONARY.get(selected_name, "THYAO.IS")
-    
-    with st.spinner(f"{selected_name} verileri ve derinlik detayları çekiliyor..."):
-        t = yf.Ticker(symbol)
-        info = t.info
-        hist = t.history(period="1y")
-        
-        # Piyasa Değeri Formatlama
-        mcap = info.get("marketCap", 0)
-        if mcap > 1e12: mcap_str = f"{mcap/1e12:.2f} Trilyon"
-        elif mcap > 1e9: mcap_str = f"{mcap/1e9:.2f} Milyar"
-        else: mcap_str = f"{mcap:,.0f}"
-        
-        currency = "TL" if symbol.endswith(".IS") else "$"
-        
-        st.markdown("---")
-        st.subheader(f"📌 {selected_name} - Anlık Detay Künyesi")
-        
-        # METRİK KARTLARI (Alış, Satış, Piyasa Değeri, Hacim)
-        m1, m2, m3, m4, m5 = st.columns(5)
-        with m1:
-            price = info.get("currentPrice", info.get("previousClose", 0))
-            st.markdown(f'<div class="metric-card"><div class="metric-title">Son Fiyat</div><div class="metric-value">{price} {currency}</div></div>', unsafe_allow_html=True)
-        with m2:
-            bid = info.get("bid", "N/A")
-            st.markdown(f'<div class="metric-card"><div class="metric-title">Anlık Alış (Bid)</div><div class="metric-value">{bid} {currency}</div></div>', unsafe_allow_html=True)
-        with m3:
-            ask = info.get("ask", "N/A")
-            st.markdown(f'<div class="metric-card"><div class="metric-title">Anlık Satış (Ask)</div><div class="metric-value">{ask} {currency}</div></div>', unsafe_allow_html=True)
-        with m4:
-            st.markdown(f'<div class="metric-card"><div class="metric-title">Piyasa Değeri</div><div class="metric-value">{mcap_str} {currency}</div></div>', unsafe_allow_html=True)
-        with m5:
-            vol = info.get("volume", 0)
-            st.markdown(f'<div class="metric-card"><div class="metric-title">Günlük Hacim</div><div class="metric-value">{vol:,.0f}</div></div>', unsafe_allow_html=True)
+    # Otomatik .IS uzantısı kontrolü (BİST için)
+    if user_input:
+        if not user_input.endswith(".IS") and len(user_input) <= 6 and not user_input in ["NVDA", "AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "AMD", "NFLX"]:
+            symbol = f"{user_input}.IS"
+        else:
+            symbol = user_input
             
-        st.write("")
-        
-        # ÇARPANLAR VE DİĞER DETAYLAR
-        c1, c2 = st.columns([1, 2])
-        
-        with c1:
-            st.markdown("##### 📐 Temel Çarpanlar")
-            st.write(f"**F/K (Fiyat/Kâr):** {info.get('trailingPE', 'N/A')}")
-            st.write(f"**PD/DD (Piyasa/Defter):** {info.get('priceToBook', 'N/A')}")
-            st.write(f"**Net Kâr Marjı:** %{round(info.get('profitMargins', 0)*100, 2) if info.get('profitMargins') else 'N/A'}")
-            st.write(f"**52 Hafta Zirve:** {info.get('fiftyTwoWeekHigh', 'N/A')} {currency}")
-            st.write(f"**52 Hafta Dip:** {info.get('fiftyTwoWeekLow', 'N/A')} {currency}")
-            
-        with c2:
-            # AI Karar Mekanizması
-            pe = info.get("trailingPE", 20)
-            score = 70 if pe and pe < 10 else (40 if pe and pe > 25 else 55)
-            rec = "GÜÇLÜ AL" if score >= 70 else ("TUT" if score >= 50 else "İZLE / SAT")
-            color = "#10b981" if score >= 70 else ("#3b82f6" if score >= 50 else "#ef4444")
-            
-            st.markdown(f"""
-                <div class="ai-card">
-                    <h4>🤖 AI Değerleme Raporu</h4>
-                    <p>Yapay zekâ algoritması hissenin kârlılık ve FK çarpanlarını taradı.</p>
-                    <h3>AI Skoru: <span style="color:{color};">{score} / 100</span></h3>
-                    <h4 style="color:{color};">Karar: {rec}</h4>
-                </div>
-            """, unsafe_allow_html=True)
-            
-        # İNTERAKTİF FİYAT GRAFİĞİ
-        st.subheader("📈 Interaktif Fiyat Grafiği")
-        fig = px.line(hist, x=hist.index, y="Close", title=f"{selected_name} 1 Yıllık Gelişim")
-        fig.update_traces(hovertemplate="<b>Tarih:</b> %{x|%d %b %Y}<br><b>Fiyat:</b> %{y:.2f} " + currency)
-        fig.update_layout(template="plotly_dark", height=400)
-        st.plotly_chart(fig, use_container_width=True)
+        with st.spinner(f"**{symbol}** verileri ve derinlik detayları çekiliyor..."):
+            try:
+                t = yf.Ticker(symbol)
+                info = t.info
+                hist = t.history(period="1y")
+                
+                # Eğer veri boş dönerse (yanlış kod yazıldıysa)
+                if hist.empty and not info.get("regularMarketPrice"):
+                    st.error(f"⚠️ '{user_input}' kodlu hisse bulunamadı! Lütfen sembolü kontrol edin. (Örn BİST için: EREGL, ASELS, THYAO)")
+                else:
+                    long_name = info.get("longName", info.get("shortName", symbol))
+                    mcap = info.get("marketCap", 0)
+                    if mcap > 1e12: mcap_str = f"{mcap/1e12:.2f} Trilyon"
+                    elif mcap > 1e9: mcap_str = f"{mcap/1e9:.2f} Milyar"
+                    else: mcap_str = f"{mcap:,.0f}" if mcap else "N/A"
+                    
+                    currency = "TL" if symbol.endswith(".IS") else "$"
+                    
+                    st.markdown("---")
+                    st.subheader(f"📌 {long_name} ({symbol}) - Anlık Detay Künyesi")
+                    
+                    # METRİK KARTLARI
+                    m1, m2, m3, m4, m5 = st.columns(5)
+                    with m1:
+                        price = info.get("currentPrice", info.get("previousClose", hist['Close'].iloc[-1] if not hist.empty else 0))
+                        st.markdown(f'<div class="metric-card"><div class="metric-title">Son Fiyat</div><div class="metric-value">{price:,.2f} {currency}</div></div>', unsafe_allow_html=True)
+                    with m2:
+                        bid = info.get("bid", "N/A")
+                        bid_str = f"{bid} {currency}" if isinstance(bid, (int, float)) else "N/A"
+                        st.markdown(f'<div class="metric-card"><div class="metric-title">Anlık Alış (Bid)</div><div class="metric-value">{bid_str}</div></div>', unsafe_allow_html=True)
+                    with m3:
+                        ask = info.get("ask", "N/A")
+                        ask_str = f"{ask} {currency}" if isinstance(ask, (int, float)) else "N/A"
+                        st.markdown(f'<div class="metric-card"><div class="metric-title">Anlık Satış (Ask)</div><div class="metric-value">{ask_str}</div></div>', unsafe_allow_html=True)
+                    with m4:
+                        st.markdown(f'<div class="metric-card"><div class="metric-title">Piyasa Değeri</div><div class="metric-value">{mcap_str} {currency}</div></div>', unsafe_allow_html=True)
+                    with m5:
+                        vol = info.get("volume", hist['Volume'].iloc[-1] if not hist.empty else 0)
+                        st.markdown(f'<div class="metric-card"><div class="metric-title">Günlük Hacim</div><div class="metric-value">{vol:,.0f}</div></div>', unsafe_allow_html=True)
+                        
+                    st.write("")
+                    
+                    # ÇARPANLAR VE AI RAPORU
+                    c1, c2 = st.columns([1, 2])
+                    
+                    with c1:
+                        st.markdown("##### 📐 Temel Çarpanlar")
+                        st.write(f"**F/K (Fiyat/Kâr):** {info.get('trailingPE', 'N/A')}")
+                        st.write(f"**PD/DD (Piyasa/Defter):** {info.get('priceToBook', 'N/A')}")
+                        st.write(f"**Net Kâr Marjı:** %{round(info.get('profitMargins', 0)*100, 2) if info.get('profitMargins') else 'N/A'}")
+                        st.write(f"**52 Hafta Zirve:** {info.get('fiftyTwoWeekHigh', 'N/A')} {currency}")
+                        st.write(f"**52 Hafta Dip:** {info.get('fiftyTwoWeekLow', 'N/A')} {currency}")
+                        
+                    with c2:
+                        pe = info.get("trailingPE", None)
+                        if pe and pe < 10:
+                            score, rec, color = 85, "GÜÇLÜ AL", "#10b981"
+                        elif pe and pe < 20:
+                            score, rec, color = 65, "TUT / KADEMELİ AL", "#3b82f6"
+                        elif pe and pe >= 20:
+                            score, rec, color = 40, "İZLE / PAHALI", "#ef4444"
+                        else:
+                            score, rec, color = 50, "NÖTR / VERİ YETERSİZ", "#eab308"
+                        
+                        st.markdown(f"""
+                            <div class="ai-card">
+                                <h4>🤖 AI Değerleme Raporu</h4>
+                                <p>Yapay zekâ finansal verileri inceledi.</p>
+                                <h3>AI Skoru: <span style="color:{color};">{score} / 100</span></h3>
+                                <h4 style="color:{color};">Karar: {rec}</h4>
+                            </div>
+                        """, unsafe_allow_html=True)
+                        
+                    # İNTERAKTİF FİYAT GRAFİĞİ
+                    if not hist.empty:
+                        st.subheader("📈 Interaktif Fiyat Grafiği")
+                        fig = px.line(hist, x=hist.index, y="Close", title=f"{long_name} 1 Yıllık Gelişim")
+                        fig.update_traces(hovertemplate="<b>Tarih:</b> %{x|%d %b %Y}<br><b>Fiyat:</b> %{y:.2f} " + currency)
+                        fig.update_layout(template="plotly_dark", height=400)
+                        st.plotly_chart(fig, use_container_width=True)
+            except Exception as e:
+                st.error("Veri çekilirken bir hata oluştu. Lütfen hisse kodunu doğru girdiğinizden emin olun.")
 
 # ---------------------------------------------------------
-# DİĞER SAYFALAR (SADELEŞTİRİLMİŞ)
+# DİĞER SAYFALAR
 # ---------------------------------------------------------
 elif page == "💼 Portföyüm":
     st.title("💼 50.000 TL Dengeli Portföy")
@@ -222,11 +200,10 @@ elif page == "💼 Portföyüm":
     fig_pie.update_layout(template="plotly_dark")
     st.plotly_chart(fig_pie, use_container_width=True)
 
-elif page == "📊 BIST Top 10":
+elif page == "📊 BIST Öne Çıkanlar":
     st.title("📊 Öne Çıkan BIST Hisseleri")
-    st.write("Temeli güçlü BIST şirketlerinin F/K değerleri:")
-    watch_list = ["ASELS.IS", "TUPRS.IS", "THYAO.IS", "KCHOL.IS", "SISE.IS", "BIMAS.IS"]
-    data = [{"Hisse": s.replace(".IS",""), "F/K": yf.Ticker(s).info.get("trailingPE", "N/A")} for s in watch_list]
+    watch_list = ["ASELS.IS", "TUPRS.IS", "THYAO.IS", "KCHOL.IS", "SISE.IS", "BIMAS.IS", "EREGL.IS", "GARAN.IS"]
+    data = [{"Hisse": s.replace(".IS",""), "Fiyat (TL)": yf.Ticker(s).info.get("currentPrice", "N/A"), "F/K": yf.Ticker(s).info.get("trailingPE", "N/A")} for s in watch_list]
     st.dataframe(pd.DataFrame(data), use_container_width=True)
 
 elif page == "🌐 Dev Teknoloji":
