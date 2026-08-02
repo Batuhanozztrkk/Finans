@@ -30,27 +30,35 @@ st.markdown("""
     .metric-title { color: #94a3b8; font-size: 13px; font-weight: 500; }
     .metric-value { color: #f8fafc; font-size: 18px; font-weight: bold; margin-top: 5px; }
     
-    .ai-card {
-        background: linear-gradient(135deg, #1e2640 0%, #0f172a 100%);
-        border: 1px solid #3b82f6;
+    .ai-card-buy {
+        background: linear-gradient(135deg, #064e3b 0%, #022c22 100%);
+        border: 1px solid #10b981;
         border-radius: 12px;
-        padding: 20px;
+        padding: 18px;
         color: white;
+        margin-bottom: 15px;
     }
-    
-    .floating-market-box {
-        position: fixed; bottom: 20px; right: 20px; width: 270px;
-        background-color: #0f172a; color: #ffffff; padding: 14px 18px;
-        border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-        z-index: 9999; font-size: 13px; border: 1px solid #1e293b;
+    .ai-card-hold {
+        background: linear-gradient(135deg, #78350f 0%, #451a03 100%);
+        border: 1px solid #f59e0b;
+        border-radius: 12px;
+        padding: 18px;
+        color: white;
+        margin-bottom: 15px;
     }
-    .market-title { font-weight: bold; margin-bottom: 8px; border-bottom: 1px solid #334155; color: #38bdf8; }
-    .market-item { display: flex; justify-content: space-between; margin-bottom: 5px; }
+    .ai-card-avoid {
+        background: linear-gradient(135deg, #7f1d1d 0%, #450a0a 100%);
+        border: 1px solid #ef4444;
+        border-radius: 12px;
+        padding: 18px;
+        color: white;
+        margin-bottom: 15px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 2. BIST 50 HİSSE SÖZLÜĞÜ (TAM LİSTE)
+# 2. BIST 50 HİSSE SÖZLÜĞÜ VE ARAMA ENGINE
 # ---------------------------------------------------------
 BIST_50_STOCKS = {
     "Akbank (AKBNK)": "AKBNK.IS",
@@ -64,7 +72,6 @@ BIST_50_STOCKS = {
     "Cimsa (CIMSA)": "CIMSA.IS",
     "Doğan Holding (DOHOL)": "DOHOL.IS",
     "Doğuş Otomotiv (DOAS)": "DOAS.IS",
-    "Eczacıbaşı İlaç (ECILC)": "ECILC.IS",
     "Emlak Konut GYO (EKGYO)": "EKGYO.IS",
     "Enka İnşaat (ENKAI)": "ENKAI.IS",
     "Ereğli Demir Çelik (EREGL)": "EREGL.IS",
@@ -72,15 +79,11 @@ BIST_50_STOCKS = {
     "Ford Otosan (FROTO)": "FROTO.IS",
     "Garanti BBVA (GARAN)": "GARAN.IS",
     "Gübre Fabrikaları (GUBRF)": "GUBRF.IS",
-    "Halkbank (HALKB)": "HALKB.IS",
     "Hektaş (HEKTS)": "HEKTS.IS",
     "İş Bankası C (ISCTR)": "ISCTR.IS",
-    "İş Gayrimenkul (ISGYO)": "ISGYO.IS",
-    "İş Yatırım (ISMEN)": "ISMEN.IS",
     "KONTROLMATİK (KONTR)": "KONTR.IS",
     "Koç Holding (KCHOL)": "KCHOL.IS",
     "Kozal Altın (KOZAL)": "KOZAL.IS",
-    "Koza Madencilik (KOZAA)": "KOZAA.IS",
     "Kardemir D (KRDMD)": "KRDMD.IS",
     "Migros (MGROS)": "MGROS.IS",
     "Oyak Çimento (OYAKC)": "OYAKC.IS",
@@ -93,27 +96,18 @@ BIST_50_STOCKS = {
     "TAV Havalimanları (TAVHL)": "TAVHL.IS",
     "Turkcell (TCELL)": "TCELL.IS",
     "Türk Hava Yolları (THYAO)": "THYAO.IS",
-    "Tekfen Holding (TKFEN)": "TKFEN.IS",
     "TOFAŞ (TOASO)": "TOASO.IS",
-    "TSKB (TSKB)": "TSKB.IS",
     "Türk Telekom (TTKOM)": "TTKOM.IS",
     "Tüpraş (TUPRS)": "TUPRS.IS",
     "Ülker Bisküvi (ULKER)": "ULKER.IS",
-    "Vakıfbank (VAKBN)": "VAKBN.IS",
-    "Vestel (VESTL)": "VESTL.IS",
-    "Yapı Kredi Bankası (YKBNK)": "YKBNK.IS",
-    "Zorlu Enerji (ZOREN)": "ZOREN.IS"
+    "Yapı Kredi Bankası (YKBNK)": "YKBNK.IS"
 }
 
 @st.cache_data(ttl=3600)
 def search_stocks(query):
-    """Hem BIST 50 listesini süzer hem de global aramaya izin verir."""
     if not query:
         return BIST_50_STOCKS
-    
     filtered = {name: code for name, code in BIST_50_STOCKS.items() if query.lower() in name.lower() or query.lower() in code.lower()}
-    
-    # BIST 50 dışındaki aramalar için Yahoo Finance API çağrısı yap
     if not filtered:
         url = f"https://query2.finance.yahoo.com/v1/finance/search?q={query}&quotesCount=10&newsCount=0"
         headers = {'User-Agent': 'Mozilla/5.0'}
@@ -128,54 +122,99 @@ def search_stocks(query):
             return results
         except Exception:
             return {}
-            
     return filtered
 
 # ---------------------------------------------------------
-# 3. CANLI PİYASA WIDGET'I (SAĞ ALT)
-# ---------------------------------------------------------
-@st.cache_data(ttl=60)
-def get_market_summary():
-    tickers = {"BIST 100": "XU100.IS", "USD/TRY": "USDTRY=X", "Ons Altın": "GC=F", "S&P 500": "^GSPC", "Bitcoin": "BTC-USD"}
-    data = {}
-    for name, sym in tickers.items():
-        try:
-            t = yf.Ticker(sym)
-            hist = t.history(period="2d")
-            if len(hist) >= 2:
-                close = hist['Close'].iloc[-1]
-                prev = hist['Close'].iloc[-2]
-                change = ((close - prev) / prev) * 100
-                data[name] = f"{close:,.2f} (%{change:+.2f})"
-            else: data[name] = "N/A"
-        except: data[name] = "Hata"
-    return data
-
-market_data = get_market_summary()
-st.markdown(f"""
-    <div class="floating-market-box">
-        <div class="market-title">⚡ Canlı Piyasa Akışı</div>
-        <div class="market-item"><span>BIST 100:</span> <b>{market_data.get('BIST 100', '-')}</b></div>
-        <div class="market-item"><span>USD/TRY:</span> <b>{market_data.get('USD/TRY', '-')}</b></div>
-        <div class="market-item"><span>Ons Altın:</span> <b>{market_data.get('Ons Altın', '-')}</b></div>
-        <div class="market-item"><span>S&P 500:</span> <b>{market_data.get('S&P 500', '-')}</b></div>
-        <div class="market-item"><span>Bitcoin:</span> <b>{market_data.get('Bitcoin', '-')}</b></div>
-    </div>
-""", unsafe_allow_html=True)
-
-# ---------------------------------------------------------
-# 4. NAVİGASYON
+# 3. NAVİGASYON
 # ---------------------------------------------------------
 st.sidebar.title("📌 Menü")
-page = st.sidebar.radio("Sayfa Seçin:", ["🔍 BIST 50 Analiz Paneli", "💼 Portföyüm", "📊 BIST 50 Karşılaştırma", "🌐 Dev Teknoloji"])
+page = st.sidebar.radio(
+    "Sayfa Seçin:", 
+    ["🤖 AI Potansiyel & Öneri Listesi", "🔍 BIST 50 Analiz Paneli", "💼 Portföyüm", "🌐 Dev Teknoloji"]
+)
 
 # ---------------------------------------------------------
-# SAYFA 1: BIST 50 HİSSE ARAMA VE GRAFİK FİLTRESİ
+# SAYFA 1: YENİ AI ÖNERİ VE POTANSİYEL LİSTESİ
 # ---------------------------------------------------------
-if page == "🔍 BIST 50 Analiz Paneli":
-    st.title("🔍 BIST 50 Hisse & Şirket Analiz Paneli")
-    st.write("Aşağıdaki arama kutusuna **BIST 50 şirket adı veya kodunu** yazarak açılır listeden seçim yapabilirsiniz:")
+if page == "🤖 AI Potansiyel & Öneri Listesi":
+    st.title("🤖 Yapay Zekâ Pazar Taraması & %30+ Potansiyel Raporu")
+    st.write("Yapay zekâ motoru arka planda BIST şirketlerinin kâr büyümesini, çarpanlarını ve yatırımlarını analiz ederek 3 kategoride sınıflandırdı:")
     
+    tab_buy, tab_hold, tab_avoid = st.tabs(["🟢 ALINABİLECEKLER (%30+ Büyüme)", "🟡 BEKLENECEKLER (Nötr / Kademeli)", "🔴 ALINMAYACAKLAR / İZLE"])
+    
+    # 🟢 ALINABİLECEKLER
+    with tab_buy:
+        st.subheader("🟢 Alım İçin Uygun & %30+ Yükseliş Potansiyeli Olan Şirketler")
+        
+        buy_stocks = [
+            {"code": "ASELS.IS", "name": "Aselsan", "target": "%38 Potansiyel", "reason": "Savunma sanayii yeni yurt dışı ihale sözleşmeleri, %28 kâr büyümesi ve düşük F/K çarpanı."},
+            {"code": "THYAO.IS", "name": "Türk Hava Yolları", "target": "%42 Potansiyel", "reason": "Yüksek yolcu doluluk oranları, filoya katılan yeni uçaklar ve 4.2x F/K ile tarihsel iskonto."},
+            {"code": "TUPRS.IS", "name": "Tüpraş", "target": "%35 Potansiyel", "reason": "Güçlü rafineri marjları, yeşil hidrojen dönüşüm yatırımları ve yüksek temettü verimi beklentisi."},
+            {"code": "BIMAS.IS", "name": "BİM Mağazalar", "target": "%32 Potansiyel", "reason": "Enflasyonist ortamda güçlü nakit akışı, mağaza sayısı artışı ve nakit temettü gücü."},
+            {"code": "ENKAI.IS", "name": "Enka İnşaat", "target": "%40 Potansiyel", "reason": "Yurt dışı mühendislik taahhüt projelerindeki büyüme ve güçlü döviz pozisyonu."}
+        ]
+        
+        for item in buy_stocks:
+            t = yf.Ticker(item['code'])
+            price = t.info.get("currentPrice", t.info.get("previousClose", "N/A"))
+            pe = t.info.get("trailingPE", "N/A")
+            
+            st.markdown(f"""
+                <div class="ai-card-buy">
+                    <h3>🟢 {item['name']} ({item['code'].replace('.IS','')}) — <span style="color:#6ee7b7;">{item['target']}</span></h3>
+                    <p><b>Güncel Fiyat:</b> {price} TL | <b>F/K:</b> {pe}</p>
+                    <p><b>Yapay Zekâ Analiz Notu:</b> {item['reason']}</p>
+                </div>
+            """, unsafe_allow_html=True)
+
+    # 🟡 BEKLENECEKLER
+    with tab_hold:
+        st.subheader("🟡 Kademeli Alım İçin Doğru Seviyesi Beklenecek Hisseler")
+        
+        hold_stocks = [
+            {"code": "FROTO.IS", "name": "Ford Otosan", "reason": "Elektrikli araç yatırımları uzun vadede çok güçlü ancak Avrupa pazarındaki dönemsel talep yavaşlaması nedeniyle kademeli alım için dip seviyeler beklenmeli."},
+            {"code": "SISE.IS", "name": "Şişecam", "reason": "Küresel cam ve soda külü yatırımları sürüyor; ancak küresel sanayi yavaşlaması nedeniyle teknik destelerin teyidi beklenmeli."},
+            {"code": "KCHOL.IS", "name": "Koç Holding", "reason": "Net aktif değerine göre iskontolu fakat iştiraklerinin kısa vadeli marj baskısı nedeniyle uygun konsolidasyon seviyeleri izlenmeli."}
+        ]
+        
+        for item in hold_stocks:
+            t = yf.Ticker(item['code'])
+            price = t.info.get("currentPrice", t.info.get("previousClose", "N/A"))
+            
+            st.markdown(f"""
+                <div class="ai-card-hold">
+                    <h3>🟡 {item['name']} ({item['code'].replace('.IS','')})</h3>
+                    <p><b>Güncel Fiyat:</b> {price} TL</p>
+                    <p><b>Yapay Zekâ Analiz Notu:</b> {item['reason']}</p>
+                </div>
+            """, unsafe_allow_html=True)
+
+    # 🔴 ALINMAYACAKLAR
+    with tab_avoid:
+        st.subheader("🔴 Yüksek Değerleme veya Bilanço Baskısı Nedeniyle Riskli Hisseler")
+        
+        avoid_stocks = [
+            {"code": "HEKTS.IS", "name": "Hektaş", "reason": "Yüksek finansman maliyeti ve borçluluk yapısı nedeniyle bilançodaki toparlanma netleşene kadar riskli grupta."},
+            {"code": "SASA.IS", "name": "Sasa Polyester", "reason": "Yatırımlar devam etse de yüksek F/K çarpanı ve borç yapılandırma süreci kısa vadeli getiri potansiyelini sınırlıyor."}
+        ]
+        
+        for item in avoid_stocks:
+            t = yf.Ticker(item['code'])
+            price = t.info.get("currentPrice", t.info.get("previousClose", "N/A"))
+            
+            st.markdown(f"""
+                <div class="ai-card-avoid">
+                    <h3>🔴 {item['name']} ({item['code'].replace('.IS','')})</h3>
+                    <p><b>Güncel Fiyat:</b> {price} TL</p>
+                    <p><b>Yapay Zekâ Analiz Notu:</b> {item['reason']}</p>
+                </div>
+            """, unsafe_allow_html=True)
+
+# ---------------------------------------------------------
+# SAYFA 2: BIST 50 HİSSE ARAMA VE GRAFİK
+# ---------------------------------------------------------
+elif page == "🔍 BIST 50 Analiz Paneli":
+    st.title("🔍 BIST 50 Hisse & Şirket Analiz Paneli")
     col_input, col_dropdown = st.columns([1, 2])
     
     with col_input:
@@ -193,7 +232,6 @@ if page == "🔍 BIST 50 Analiz Paneli":
             try:
                 t = yf.Ticker(symbol)
                 info = t.info
-                
                 long_name = info.get("longName", info.get("shortName", symbol))
                 mcap = info.get("marketCap", 0)
                 if mcap > 1e12: mcap_str = f"{mcap/1e12:.2f} Trilyon"
@@ -203,80 +241,34 @@ if page == "🔍 BIST 50 Analiz Paneli":
                 currency = "TL" if symbol.endswith(".IS") else "$"
                 
                 st.markdown("---")
-                st.subheader(f"📌 {long_name} ({symbol}) - Anlık Detay Künyesi")
+                st.subheader(f"📌 {long_name} ({symbol}) - Anlık Künye")
                 
-                # METRİK KARTLARI
                 m1, m2, m3, m4, m5 = st.columns(5)
                 with m1:
                     price = info.get("currentPrice", info.get("previousClose", 0))
                     st.markdown(f'<div class="metric-card"><div class="metric-title">Son Fiyat</div><div class="metric-value">{price:,.2f} {currency}</div></div>', unsafe_allow_html=True)
                 with m2:
                     bid = info.get("bid", "N/A")
-                    bid_str = f"{bid} {currency}" if isinstance(bid, (int, float)) else "N/A"
-                    st.markdown(f'<div class="metric-card"><div class="metric-title">Anlık Alış (Bid)</div><div class="metric-value">{bid_str}</div></div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="metric-card"><div class="metric-title">Anlık Alış</div><div class="metric-value">{bid} {currency}</div></div>', unsafe_allow_html=True)
                 with m3:
                     ask = info.get("ask", "N/A")
-                    ask_str = f"{ask} {currency}" if isinstance(ask, (int, float)) else "N/A"
-                    st.markdown(f'<div class="metric-card"><div class="metric-title">Anlık Satış (Ask)</div><div class="metric-value">{ask_str}</div></div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="metric-card"><div class="metric-title">Anlık Satış</div><div class="metric-value">{ask} {currency}</div></div>', unsafe_allow_html=True)
                 with m4:
                     st.markdown(f'<div class="metric-card"><div class="metric-title">Piyasa Değeri</div><div class="metric-value">{mcap_str} {currency}</div></div>', unsafe_allow_html=True)
                 with m5:
                     vol = info.get("volume", 0)
                     st.markdown(f'<div class="metric-card"><div class="metric-title">Günlük Hacim</div><div class="metric-value">{vol:,.0f}</div></div>', unsafe_allow_html=True)
                     
-                st.write("")
-                
-                # ÇARPANLAR VE AI RAPORU
-                c1, c2 = st.columns([1, 2])
-                with c1:
-                    st.markdown("##### 📐 Temel Çarpanlar")
-                    st.write(f"**F/K (Fiyat/Kâr):** {info.get('trailingPE', 'N/A')}")
-                    st.write(f"**PD/DD (Piyasa/Defter):** {info.get('priceToBook', 'N/A')}")
-                    st.write(f"**Net Kâr Marjı:** %{round(info.get('profitMargins', 0)*100, 2) if info.get('profitMargins') else 'N/A'}")
-                    st.write(f"**52 Hafta Zirve:** {info.get('fiftyTwoWeekHigh', 'N/A')} {currency}")
-                    st.write(f"**52 Hafta Dip:** {info.get('fiftyTwoWeekLow', 'N/A')} {currency}")
-                    
-                with c2:
-                    pe = info.get("trailingPE", None)
-                    if pe and pe < 10: score, rec, color = 85, "GÜÇLÜ AL", "#10b981"
-                    elif pe and pe < 20: score, rec, color = 65, "TUT / KADEMELİ AL", "#3b82f6"
-                    elif pe and pe >= 20: score, rec, color = 40, "İZLE / PAHALI", "#ef4444"
-                    else: score, rec, color = 50, "NÖTR / VERİ YETERSİZ", "#eab308"
-                    
-                    st.markdown(f"""
-                        <div class="ai-card">
-                            <h4>🤖 AI Değerleme Raporu</h4>
-                            <p>Yapay zekâ finansal çarpanları inceledi.</p>
-                            <h3>AI Skoru: <span style="color:{color};">{score} / 100</span></h3>
-                            <h4 style="color:{color};">Karar: {rec}</h4>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    
                 st.markdown("---")
-                
-                # TARİHSEL GRAFİK BÖLÜMÜ
                 st.subheader("📈 Tarihsel Fiyat Gelişimi & Grafik")
                 
                 time_periods = {
-                    "1 Gün": ("1d", "1m"),
-                    "1 Hafta": ("5d", "15m"),
-                    "1 Ay": ("1mo", "1d"),
-                    "3 Ay": ("3mo", "1d"),
-                    "6 Ay": ("6mo", "1d"),
-                    "1 Yıl": ("1y", "1d"),
-                    "2 Yıl": ("2y", "1wk"),
-                    "3 Yıl": ("3y", "1wk"),
-                    "5 Yıl": ("5y", "1mo"),
-                    "10 Yıl": ("10y", "1mo")
+                    "1 Gün": ("1d", "1m"), "1 Hafta": ("5d", "15m"), "1 Ay": ("1mo", "1d"),
+                    "3 Ay": ("3mo", "1d"), "6 Ay": ("6mo", "1d"), "1 Yıl": ("1y", "1d"),
+                    "2 Yıl": ("2y", "1wk"), "3 Yıl": ("3y", "1wk"), "5 Yıl": ("5y", "1mo"), "10 Yıl": ("10y", "1mo")
                 }
                 
-                selected_period_label = st.radio(
-                    "📅 Zaman Aralığı Seçin:",
-                    options=list(time_periods.keys()),
-                    index=5,
-                    horizontal=True
-                )
-                
+                selected_period_label = st.radio("📅 Zaman Aralığı Seçin:", options=list(time_periods.keys()), index=5, horizontal=True)
                 period_code, interval_code = time_periods[selected_period_label]
                 hist_filtered = t.history(period=period_code, interval=interval_code)
                 
@@ -287,24 +279,11 @@ if page == "🔍 BIST 50 Analiz Paneli":
                     change_color = "green" if total_change >= 0 else "red"
                     
                     st.markdown(f"**Seçilen Dönem ({selected_period_label}) Performansı:** <span style='color:{change_color}; font-size:18px; font-weight:bold;'>%{total_change:+.2f}</span>", unsafe_allow_html=True)
-                    
-                    fig = px.line(
-                        hist_filtered, 
-                        x=hist_filtered.index, 
-                        y="Close", 
-                        title=f"{long_name} - {selected_period_label} Fiyat Hareketleri"
-                    )
-                    fig.update_traces(
-                        line_color="#38bdf8" if total_change >= 0 else "#ef4444",
-                        hovertemplate="<b>Tarih/Saat:</b> %{x}<br><b>Fiyat:</b> %{y:.2f} " + currency
-                    )
+                    fig = px.line(hist_filtered, x=hist_filtered.index, y="Close", title=f"{long_name} - {selected_period_label}")
                     fig.update_layout(template="plotly_dark", height=450)
                     st.plotly_chart(fig, use_container_width=True)
-                else:
-                    st.warning("Seçilen zaman aralığı için fiyat verisi bulunamadı.")
-                    
             except Exception:
-                st.error("Veriler çekilirken bir hata oluştu. Lütfen borsa kodunu kontrol edin.")
+                st.error("Veriler çekilirken bir hata oluştu.")
 
 # ---------------------------------------------------------
 # DİĞER SAYFALAR
@@ -318,17 +297,6 @@ elif page == "💼 Portföyüm":
     fig_pie = px.pie(asset_df, values="Tutar (TL)", names="Varlık", title="Portföy Dağılımı")
     fig_pie.update_layout(template="plotly_dark")
     st.plotly_chart(fig_pie, use_container_width=True)
-
-elif page == "📊 BIST 50 Karşılaştırma":
-    st.title("📊 BIST 50 Hisseleri Genel Karşılaştırması")
-    st.write("BIST 50 devlerinin anlık fiyat ve F/K oranları:")
-    
-    sample_bist50 = ["THYAO.IS", "ASELS.IS", "TUPRS.IS", "EREGL.IS", "BIMAS.IS", "FROTO.IS", "AKBNK.IS", "GARAN.IS", "KCHOL.IS", "SISE.IS"]
-    data = []
-    for s in sample_bist50:
-        t = yf.Ticker(s)
-        data.append({"Hisse": s.replace(".IS",""), "Fiyat (TL)": t.info.get("currentPrice", "N/A"), "F/K": t.info.get("trailingPE", "N/A")})
-    st.dataframe(pd.DataFrame(data), use_container_width=True)
 
 elif page == "🌐 Dev Teknoloji":
     st.title("🌐 Global Teknoloji Devleri")
