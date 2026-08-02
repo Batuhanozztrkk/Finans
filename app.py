@@ -14,7 +14,7 @@ st.caption("Veriler her sayfa yenilendiğinde otomatik olarak güncellenir.")
 @st.cache_data(ttl=60) # 60 saniyede bir veriyi tazele
 def get_market_summary():
     tickers = {
-        "BIST 100": XU100.IS,
+        "BIST 100": "XU100.IS",  # <-- "XU100.IS" şeklinde tırnak içine alındı
         "USD/TRY": "USDTRY=X",
         "Gram Altın (USD)": "GC=F",
         "S&P 500": "^GSPC",
